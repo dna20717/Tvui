@@ -17,6 +17,10 @@ class WallpaperStore(context: Context) {
         get() = prefs.getString("wallpaper", "preset:0") ?: "preset:0"
         set(v) { prefs.edit().putString("wallpaper", v).apply() }
 
+    var motion: Boolean
+        get() = prefs.getBoolean("motion", true)
+        set(v) { prefs.edit().putBoolean("motion", v).apply() }
+
     val presetIndex: Int
         get() = if (selection == "custom") -1 else selection.removePrefix("preset:").toIntOrNull() ?: 0
 

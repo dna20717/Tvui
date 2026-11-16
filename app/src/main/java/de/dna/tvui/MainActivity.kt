@@ -1,6 +1,9 @@
 package de.dna.tvui
 
+import android.animation.TimeAnimator
 import android.app.Activity
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -20,6 +23,9 @@ import android.widget.TextView
 import android.widget.Toast
 import java.io.IOException
 import kotlin.concurrent.thread
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 class MainActivity : Activity() {
 
@@ -36,6 +42,24 @@ class MainActivity : Activity() {
     private lateinit var qrView: ImageView
     private lateinit var uploadUrl: TextView
     private lateinit var updateText: TextView
+    private lateinit var motionText: TextView
+
+    // Sanfte Hintergrund-Bewegung
+    private var wallpaperBitmap: Bitmap? = null
+    private val motionMatrix = Matrix()
+    private val imageMatrix = Matrix()
+    private var motionMs = 0L
+    private var sinceFrameMs = 0L
+    private val motionAnimator = TimeAnimator().apply {
+        setTimeListener { _, _, delta ->
+            motionMs += delta
+            sinceFrameMs += delta
+            if (sinceFrameMs >= 33) {   // ~30 Bilder/s reichen für langsame Bewegung
+                sinceFrameMs = 0
+                updateMotion()
+            }
+        }
+    }
 
     private lateinit var updater: Updater
     private var latest: Updater.Release? = null
@@ -93,6 +117,13 @@ class MainActivity : Activity() {
         qrView = findViewById(R.id.qr)
         uploadUrl = findViewById(R.id.uploadUrl)
         updateText = findViewById(R.id.updateText)
+        motionText = findViewById(R.id.motionText)
+        wallpaperView.scaleType = ImageView.ScaleType.MATRIX
+        motionText.text = motionLabel()
+        findViewById<GlassLayout>(R.id.motionButton).apply {
+            cornerRadius = dp(22f)
+            setOnClickListener { toggleMotion() }
+        }
         updater = Updater(this)
 
         val filter = IntentFilter(Updater.ACTION_INSTALL_STATUS)
@@ -128,10 +159,12 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        if (store.motion && !motionAnimator.isStarted) motionAnimator.start()
         if (settingsOpen) startServer()
     }
 
     override fun onStop() {
+        motionAnimator.cancel()
         stopServer()
         super.onStop()
     }
@@ -262,8 +295,10 @@ class MainActivity : Activity() {
             val bmp = store.load(w, h)
             val blurred = Backdrop.blur(bmp, w, h)
             runOnUiThread {
+                wallpaperBitmap = bmp
                 wallpaperView.setImageBitmap(bmp)
                 Backdrop.set(blurred, w, h)
+                updateMotion()
                 updateSelectionMarks()
             }
         }
@@ -355,6 +390,39 @@ class MainActivity : Activity() {
             toast("Neuer Hintergrund ✨")
         }
         return ok
+    }
+
+    // ---------- Bewegung ----------
+
+    /** Langsames Schweben + leichtes Atmen (Zoom). Das Glas bekommt dieselbe Bewegung. */
+    private fun updateMotion() {
+        val bmp = wallpaperBitmap ?: return
+        val w = screen.x.toFloat()
+        val h = screen.y.toFloat()
+        motionMatrix.reset()
+        if (store.motion) {
+            val t = motionMs / 1000.0
+            val s = (1.08 + 0.02 * sin(t * 2 * PI / 50)).toFloat()
+            val dx = (0.02 * w * sin(t * 2 * PI / 70)).toFloat()
+            val dy = (0.012 * h * cos(t * 2 * PI / 60)).toFloat()
+            motionMatrix.setScale(s, s, w / 2f, h / 2f)
+            motionMatrix.postTranslate(dx, dy)
+        }
+        imageMatrix.set(Backdrop.centerCrop(bmp.width, bmp.height, screen.x, screen.y))
+        imageMatrix.postConcat(motionMatrix)
+        wallpaperView.imageMatrix = imageMatrix
+        Backdrop.setMotion(motionMatrix)
+    }
+
+    private fun motionLabel() = if (store.motion) "Bewegung: an" else "Bewegung: aus"
+
+    private fun toggleMotion() {
+        store.motion = !store.motion
+        motionText.text = motionLabel()
+        if (store.motion) motionAnimator.start() else {
+            motionAnimator.cancel()
+            updateMotion()
+        }
     }
 
     // ---------- Update ----------

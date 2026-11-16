@@ -100,6 +100,7 @@ class GlassLayout @JvmOverloads constructor(
                 Backdrop.screenW / bmp.width.toFloat(),
                 Backdrop.screenH / bmp.height.toFloat(),
             )
+            shaderMatrix.postConcat(Backdrop.motion)
             shaderMatrix.postTranslate(-loc[0].toFloat(), -loc[1].toFloat())
             shader?.setLocalMatrix(shaderMatrix)
             canvas.drawRoundRect(rect, r, r, glassPaint)

@@ -20,7 +20,16 @@ object Backdrop {
     var screenH = 1
         private set
 
+    /** Aktuelle Bewegung des Hintergrunds (Bildschirm-Koordinaten). */
+    val motion = Matrix()
+
     private val listeners = mutableSetOf<Runnable>()
+
+    /** Läuft im UI-Thread, bei jedem Animations-Frame. */
+    fun setMotion(m: Matrix) {
+        motion.set(m)
+        listeners.toList().forEach { it.run() }
+    }
 
     fun addListener(r: Runnable) { listeners.add(r) }
     fun removeListener(r: Runnable) { listeners.remove(r) }
