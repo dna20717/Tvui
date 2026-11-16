@@ -90,8 +90,8 @@
             android:id="@+id/appName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:layout_marginBottom="12dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="14dp"
             android:fontFamily="sans-serif-light"
             android:shadowColor="#66000000"
             android:shadowRadius="10"
@@ -101,15 +101,14 @@
 
         <de.dna.tvui.GlassLayout
             android:id="@+id/dock"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:clipChildren="false"
-            android:clipToPadding="false"
-            android:padding="12dp">
+            android:layout_gravity="center_horizontal"
+            android:padding="10dp">
 
             <HorizontalScrollView
                 android:id="@+id/appScroll"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:clipChildren="false"
                 android:clipToPadding="false"

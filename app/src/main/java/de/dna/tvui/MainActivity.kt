@@ -3,6 +3,7 @@ package de.dna.tvui
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Point
+import android.net.Uri
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
@@ -109,22 +110,62 @@ class MainActivity : Activity() {
 
     private fun refreshApps() {
         thread {
-            val apps = loadApps()
+            val installed = loadApps()
+            // Jeden Dock-Eintrag der passenden installierten App zuordnen
+            val resolved = DockConfig.items.map { item ->
+                item to when (item) {
+                    is AppItem -> item.packages.firstNotNullOfOrNull { installed[it] }
+                        ?: installed.values.firstOrNull { item.labelMatch.containsMatchIn(it.label) }
+                    is LinkItem -> null
+                }
+            }
             runOnUiThread {
-                val pkgs = apps.map { it.pkg }
-                if (pkgs == currentPackages) return@runOnUiThread
-                currentPackages = pkgs
+                val keys = resolved.map { (item, app) -> "${item.name}:${app?.pkg}" }
+                if (keys == currentPackages) return@runOnUiThread
+                currentPackages = keys
                 val hadFocus = appRow.hasFocus() || appRow.childCount == 0
                 appRow.removeAllViews()
-                for (app in apps) {
-                    appRow.addView(AppTile(this, app, { appName.text = it.label }, { launch(it) }))
-                }
+                for ((item, app) in resolved) appRow.addView(tileFor(item, app))
                 if (hadFocus && !settingsOpen) appRow.getChildAt(0)?.requestFocus()
             }
         }
     }
 
-    private fun loadApps(): List<AppEntry> {
+    private fun tileFor(item: DockItem, app: AppEntry?): View = when {
+        item is LinkItem -> TextTile(
+            this, item.name, Uri.parse(item.url).host?.removePrefix("www.") ?: item.url, item.color,
+            { appName.text = item.name },
+            { openLink(item) },
+        )
+        app != null -> AppTile(this, app, { appName.text = item.name }, { launch(it) })
+        else -> TextTile(
+            this, item.name, "Nicht installiert", 0xFF4A4E5A.toInt(),
+            { appName.text = "${item.name} · OK drücken zum Installieren" },
+            { openStore("market://search?q=" + Uri.encode(item.name) + "&c=apps") },
+        ).apply { alpha = 0.75f }
+    }
+
+    private fun openLink(item: LinkItem) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(item.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (intent.resolveActivity(packageManager) != null) {
+            try {
+                startActivity(intent)
+                return
+            } catch (_: Exception) {}
+        }
+        toast("Für Websites brauchst du einen Browser. Ich öffne „TV Bro“ im Play Store.")
+        openStore("market://details?id=com.phlox.tvwebbrowser")
+    }
+
+    private fun openStore(uri: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            toast("Play Store nicht gefunden")
+        }
+    }
+
+    private fun loadApps(): Map<String, AppEntry> {
         val pm = packageManager
         val found = LinkedHashMap<String, AppEntry>()
         for (category in listOf(Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER)) {
@@ -140,7 +181,7 @@ class MainActivity : Activity() {
                 found[pkg] = AppEntry(pkg, ri.loadLabel(pm).toString(), banner, icon)
             }
         }
-        return found.values.sortedBy { it.label.lowercase() }
+        return found
     }
 
     private fun launch(app: AppEntry) {

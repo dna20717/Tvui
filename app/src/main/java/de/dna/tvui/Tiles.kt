@@ -94,7 +94,7 @@ class AppTile(
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
             }
-            col.addView(ImageView(context).apply {
+            if (entry.icon != null) col.addView(ImageView(context).apply {
                 setImageDrawable(entry.icon)
             }, LinearLayout.LayoutParams(context.dp(44f).toInt(), context.dp(44f).toInt()))
             col.addView(TextView(context).apply {
@@ -107,6 +107,48 @@ class AppTile(
             })
             addView(col, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         }
+    }
+}
+
+/** Kachel mit Text: für Website-Links und noch nicht installierte Apps. */
+@SuppressLint("ViewConstructor")
+class TextTile(
+    context: Context,
+    title: String,
+    subtitle: String,
+    color: Int,
+    onFocused: () -> Unit,
+    onClick: () -> Unit,
+) : GlassTile(context, 176f, 99f, 18f, onFocused, onClick) {
+    init {
+        contentDescription = title
+        background = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf((color and 0x00FFFFFF) or 0xB3000000.toInt(), (color and 0x00FFFFFF) or 0x33000000),
+        ).apply { cornerRadius = context.dp(18f) }
+
+        val col = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            val p = context.dp(16f).toInt()
+            setPadding(p, 0, p, 0)
+        }
+        col.addView(TextView(context).apply {
+            text = title
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 19f
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            setSingleLine()
+            ellipsize = TextUtils.TruncateAt.END
+        })
+        col.addView(TextView(context).apply {
+            text = subtitle
+            setTextColor(0xB3FFFFFF.toInt())
+            textSize = 12f
+            setSingleLine()
+            ellipsize = TextUtils.TruncateAt.END
+        })
+        addView(col, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     }
 }
 
