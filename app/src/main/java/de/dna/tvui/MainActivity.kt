@@ -21,7 +21,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import java.io.IOException
 import kotlin.concurrent.thread
 import kotlin.math.PI
 import kotlin.math.cos
@@ -94,7 +93,7 @@ class MainActivity : Activity() {
 
     private val screen = Point()
     private var currentPackages: List<String> = emptyList()
-    private var server: WallpaperServer? = null
+    private val app get() = application as TvuiApp
 
     private val settingsOpen get() = overlay.visibility == View.VISIBLE
 
@@ -145,10 +144,17 @@ class MainActivity : Activity() {
         settingsButton.setOnClickListener { showSettings() }
         overlay.setOnClickListener { hideSettings() }
 
+        app.onWallpaperChanged = {
+            applyWallpaper()
+            if (settingsOpen) hideSettings()
+            toast("Neuer Hintergrund ✨")
+        }
+
         applyWallpaper()
     }
 
     override fun onDestroy() {
+        app.onWallpaperChanged = null
         try { unregisterReceiver(installReceiver) } catch (_: Exception) {}
         super.onDestroy()
     }
@@ -162,12 +168,10 @@ class MainActivity : Activity() {
     override fun onStart() {
         super.onStart()
         if (store.motion && !motionAnimator.isStarted) motionAnimator.start()
-        if (settingsOpen) startServer()
     }
 
     override fun onStop() {
         motionAnimator.cancel()
-        stopServer()
         super.onStop()
     }
 
@@ -235,17 +239,7 @@ class MainActivity : Activity() {
         ).apply { alpha = 0.75f }
     }
 
-    private fun openLink(item: LinkItem) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(item.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (intent.resolveActivity(packageManager) != null) {
-            try {
-                startActivity(intent)
-                return
-            } catch (_: Exception) {}
-        }
-        toast("Für Websites brauchst du einen Browser. Ich öffne „TV Bro“ im Play Store.")
-        openStore("market://details?id=com.phlox.tvwebbrowser")
-    }
+    private fun openLink(item: LinkItem) = MediaLauncher.openBrowser(this, item.url)
 
     private fun openStore(uri: String) {
         try {
@@ -342,7 +336,7 @@ class MainActivity : Activity() {
         overlay.alpha = 0f
         overlay.visibility = View.VISIBLE
         overlay.animate().alpha(1f).setDuration(180).start()
-        startServer()
+        showUploadInfo()
         checkForUpdate()
         val selected = (0 until presetRow.childCount)
             .map { presetRow.getChildAt(it) }
@@ -351,7 +345,6 @@ class MainActivity : Activity() {
     }
 
     private fun hideSettings() {
-        stopServer()
         overlay.animate().alpha(0f).setDuration(150).withEndAction {
             overlay.visibility = View.GONE
         }.start()
@@ -359,39 +352,16 @@ class MainActivity : Activity() {
         settingsButton.requestFocus()
     }
 
-    private fun startServer() {
+    private fun showUploadInfo() {
         val ip = WallpaperServer.localIp()
-        if (ip == null) {
-            uploadUrl.text = "Kein Netzwerk gefunden 😕"
-            qrView.setImageDrawable(null)
-            return
-        }
-        val srv = server ?: WallpaperServer(assets) { bytes -> onPhotoUploaded(bytes) }.also { server = it }
-        try {
-            srv.start()
-        } catch (e: IOException) {
-            uploadUrl.text = "Upload gerade nicht möglich"
+        if (ip == null || !app.startServer()) {
+            uploadUrl.text = if (ip == null) "Kein Netzwerk gefunden 😕" else "Upload gerade nicht möglich"
             qrView.setImageDrawable(null)
             return
         }
         val url = "http://$ip:${WallpaperServer.PORT}"
         uploadUrl.text = url
         qrView.setImageBitmap(WallpaperServer.qr(url, 400))
-    }
-
-    private fun stopServer() {
-        server?.stop()
-    }
-
-    /** Wird vom Server-Thread aufgerufen. */
-    private fun onPhotoUploaded(bytes: ByteArray): Boolean {
-        val ok = store.saveCustom(bytes)
-        if (ok) runOnUiThread {
-            applyWallpaper()
-            if (settingsOpen) hideSettings()
-            toast("Neuer Hintergrund ✨")
-        }
-        return ok
     }
 
     // ---------- Bewegung ----------

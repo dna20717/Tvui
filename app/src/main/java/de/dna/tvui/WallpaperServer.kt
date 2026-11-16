@@ -15,6 +15,7 @@ import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.URLDecoder
 import kotlin.concurrent.thread
 
 /**
@@ -25,6 +26,7 @@ import kotlin.concurrent.thread
 class WallpaperServer(
     private val assets: AssetManager,
     private val onUpload: (ByteArray) -> Boolean,
+    private val onPlay: (Map<String, String>) -> Boolean,
 ) {
     @Volatile
     private var socket: ServerSocket? = null
@@ -67,12 +69,21 @@ class WallpaperServer(
                 }
                 val parts = requestLine.split(" ")
                 val method = parts.getOrElse(0) { "" }
-                val path = parts.getOrElse(1) { "/" }.substringBefore('?')
+                val target = parts.getOrElse(1) { "/" }
+                val path = target.substringBefore('?')
+                val query = parseQuery(target.substringAfter('?', ""))
 
                 when {
                     method == "GET" && path == "/" -> {
+                        val base = "http://" + (headers["host"] ?: "$PORT")
                         val page = assets.open("upload.html").use { it.readBytes() }
-                        respond(out, 200, "text/html; charset=utf-8", page)
+                            .toString(Charsets.UTF_8).replace("{{TV}}", base)
+                        respond(out, 200, "text/html; charset=utf-8", page.toByteArray())
+                    }
+                    path == "/play" -> {
+                        val ok = onPlay(query)
+                        val msg = if (ok) "Läuft auf dem Fernseher 📺" else "Nichts zum Abspielen gefunden 😕"
+                        respond(out, if (ok) 200 else 400, "text/plain; charset=utf-8", msg.toByteArray())
                     }
                     method == "POST" && path == "/upload" -> {
                         val len = headers["content-length"]?.toIntOrNull() ?: -1
@@ -97,6 +108,14 @@ class WallpaperServer(
             // Verbindung abgebrochen – egal, das iPad kann es nochmal versuchen.
         }
     }
+
+    private fun parseQuery(q: String): Map<String, String> =
+        q.split('&').filter { it.contains('=') }.associate {
+            val k = it.substringBefore('=')
+            val v = it.substringAfter('=')
+            fun dec(s: String) = try { URLDecoder.decode(s, "UTF-8") } catch (e: Exception) { s }
+            dec(k) to dec(v)
+        }
 
     private fun readLine(input: InputStream): String? {
         val sb = StringBuilder()

@@ -3,57 +3,96 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TVUI · Hintergrund</title>
+<title>TVUI</title>
 <style>
   :root { color-scheme: dark; }
   body {
-    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    margin: 0; min-height: 100vh; box-sizing: border-box; padding: 32px 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 24px;
     font-family: -apple-system, system-ui, sans-serif; color: #fff;
     background:
       radial-gradient(circle at 18% 22%, #2ee6c5 0, transparent 42%),
       radial-gradient(circle at 82% 28%, #8a5cff 0, transparent 44%),
       radial-gradient(circle at 60% 92%, #ff5ca8 0, transparent 42%),
       #0b1026;
+    background-attachment: fixed;
   }
   .card {
-    width: min(90vw, 520px); padding: 34px; border-radius: 34px; box-sizing: border-box;
+    width: min(92vw, 560px); padding: 32px; border-radius: 34px; box-sizing: border-box;
     background: rgba(255,255,255,.12);
     border: 1px solid rgba(255,255,255,.35);
     -webkit-backdrop-filter: blur(30px) saturate(160%);
     backdrop-filter: blur(30px) saturate(160%);
     box-shadow: 0 24px 60px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.4);
   }
-  h1 { margin: 0 0 6px; font-weight: 600; font-size: 28px; }
-  p { margin: 0 0 24px; opacity: .8; line-height: 1.4; }
-  label.btn {
-    display: block; text-align: center; padding: 18px; border-radius: 22px;
-    background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.4);
-    font-size: 18px; font-weight: 600; cursor: pointer;
+  h1 { margin: 0 0 6px; font-weight: 600; font-size: 26px; }
+  p { margin: 0 0 20px; opacity: .85; line-height: 1.45; }
+  ol { margin: 0 0 20px; padding-left: 22px; line-height: 1.6; opacity: .9; }
+  b { font-weight: 600; }
+  .btn {
+    display: block; width: 100%; text-align: center; padding: 17px; border-radius: 22px; box-sizing: border-box;
+    background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.4); color: #fff;
+    font: 600 18px -apple-system, system-ui, sans-serif; cursor: pointer;
   }
-  label.btn:active { transform: scale(.98); }
-  input { display: none; }
-  #preview { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 20px; margin-top: 22px; display: none; }
-  #status { margin-top: 16px; text-align: center; min-height: 1.4em; font-size: 17px; }
+  .btn:active { transform: scale(.98); }
+  input[type=file] { display: none; }
+  #preview { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 20px; margin-top: 20px; display: none; }
+  .status { margin-top: 14px; text-align: center; min-height: 1.4em; font-size: 17px; }
+  textarea {
+    width: 100%; height: 190px; box-sizing: border-box; margin-bottom: 14px; padding: 14px;
+    border-radius: 18px; border: 1px solid rgba(255,255,255,.3); background: rgba(0,0,0,.3); color: #fff;
+    font: 12px ui-monospace, Menlo, monospace; resize: vertical;
+  }
 </style>
 </head>
 <body>
+
 <div class="card">
   <h1>Neuer Hintergrund ✨</h1>
   <p>Wähle ein Foto. Es erscheint sofort auf deinem Fernseher.</p>
   <label class="btn" for="file">Foto auswählen</label>
   <input id="file" type="file" accept="image/*">
   <img id="preview" alt="">
-  <div id="status"></div>
+  <div class="status" id="photoStatus"></div>
 </div>
+
+<div class="card">
+  <h1>Auf TV abspielen 📺</h1>
+  <p>Mit diesem Kurzbefehl schickst du jede Seite aus Safari an den Fernseher. Findet er ein Video, spielt der TV es direkt ab. Sonst öffnet sich die Seite im TV-Browser.</p>
+  <ol>
+    <li>Unten auf <b>Code kopieren</b> tippen.</li>
+    <li>App <b>Kurzbefehle</b> öffnen → <b>+</b> → Name: <b>Auf TV abspielen</b></li>
+    <li>Aktion <b>„JavaScript auf Webseite ausführen“</b> hinzufügen, den vorhandenen Code löschen und deinen einfügen.</li>
+    <li>Aktion <b>„Inhalte von URL abrufen“</b> darunter hinzufügen. Sie nimmt automatisch das JavaScript-Ergebnis.</li>
+    <li>Oben auf das <b>ⓘ</b> tippen → <b>„Im Teilen-Menü anzeigen“</b> einschalten.</li>
+    <li>In Safari: <b>Teilen → Auf TV abspielen</b>. Beim ersten Mal fragt das iPad nach Erlaubnis.</li>
+  </ol>
+  <textarea id="code" readonly>var TV = '{{TV}}';
+var video = '';
+var vids = document.querySelectorAll('video, video source');
+for (var i = 0; i < vids.length; i++) {
+  var s = vids[i].currentSrc || vids[i].src || '';
+  if (s.indexOf('http') === 0) { video = s; break; }
+}
+var page = location.href;
+if (!video) {
+  var f = document.querySelector('iframe[allowfullscreen], iframe[src*="embed"], iframe[src*="player"]');
+  if (f && f.src && f.src.indexOf('http') === 0) page = f.src;
+}
+completion(TV + '/play?page=' + encodeURIComponent(page) + '&video=' + encodeURIComponent(video) + '&ref=' + encodeURIComponent(location.href));</textarea>
+  <button class="btn" id="copy">Code kopieren</button>
+  <div class="status" id="copyStatus"></div>
+</div>
+
 <script>
   var input = document.getElementById('file');
   var preview = document.getElementById('preview');
-  var statusEl = document.getElementById('status');
+  var photoStatus = document.getElementById('photoStatus');
 
   input.onchange = function () {
     var file = input.files[0];
     if (!file) return;
-    statusEl.textContent = 'Wird vorbereitet …';
+    photoStatus.textContent = 'Wird vorbereitet …';
     var url = URL.createObjectURL(file);
     var img = new Image();
     img.onload = function () {
@@ -67,18 +106,31 @@
       preview.src = url;
       preview.style.display = 'block';
       canvas.toBlob(function (blob) {
-        statusEl.textContent = 'Wird gesendet …';
+        photoStatus.textContent = 'Wird gesendet …';
         fetch('/upload', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob })
           .then(function (r) {
-            statusEl.textContent = r.ok
+            photoStatus.textContent = r.ok
               ? 'Fertig! Schau auf deinen Fernseher 📺'
               : 'Das hat nicht geklappt. Probier ein anderes Foto.';
           })
-          .catch(function () { statusEl.textContent = 'Keine Verbindung zum Fernseher.'; });
+          .catch(function () { photoStatus.textContent = 'Keine Verbindung zum Fernseher.'; });
       }, 'image/jpeg', 0.88);
     };
-    img.onerror = function () { statusEl.textContent = 'Dieses Bild kann ich nicht lesen.'; };
+    img.onerror = function () { photoStatus.textContent = 'Dieses Bild kann ich nicht lesen.'; };
     img.src = url;
+  };
+
+  document.getElementById('copy').onclick = function () {
+    var code = document.getElementById('code');
+    var copyStatus = document.getElementById('copyStatus');
+    code.removeAttribute('readonly');
+    code.focus();
+    code.setSelectionRange(0, code.value.length);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    code.setAttribute('readonly', '');
+    code.blur();
+    copyStatus.textContent = ok ? 'Kopiert ✓ Jetzt ab in die Kurzbefehle-App.' : 'Bitte den Code markieren und von Hand kopieren.';
   };
 </script>
 </body>
