@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="guard_label">TVUI Homescreen-Wächter</string>
+    <string name="guard_description">Sorgt dafür, dass nach dem Einschalten und beim Drücken der Home-Taste immer TVUI erscheint statt des Philips-Homescreens. Liest keine Inhalte, merkt sich nur, welche App gerade im Vordergrund ist.</string>
+</resources>

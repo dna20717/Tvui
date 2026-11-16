@@ -43,6 +43,7 @@ class MainActivity : Activity() {
     private lateinit var uploadUrl: TextView
     private lateinit var updateText: TextView
     private lateinit var motionText: TextView
+    private lateinit var guardText: TextView
 
     // Sanfte Hintergrund-Bewegung
     private var wallpaperBitmap: Bitmap? = null
@@ -118,6 +119,11 @@ class MainActivity : Activity() {
         uploadUrl = findViewById(R.id.uploadUrl)
         updateText = findViewById(R.id.updateText)
         motionText = findViewById(R.id.motionText)
+        guardText = findViewById(R.id.guardText)
+        findViewById<GlassLayout>(R.id.guardButton).apply {
+            cornerRadius = dp(22f)
+            setOnClickListener { openGuardSettings() }
+        }
         wallpaperView.scaleType = ImageView.ScaleType.MATRIX
         motionText.text = motionLabel()
         findViewById<GlassLayout>(R.id.motionButton).apply {
@@ -154,6 +160,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        updateGuardLabel()
         refreshApps()
     }
 
@@ -390,6 +397,21 @@ class MainActivity : Activity() {
             toast("Neuer Hintergrund ✨")
         }
         return ok
+    }
+
+    // ---------- Homescreen-Wächter ----------
+
+    private fun updateGuardLabel() {
+        guardText.text = if (HomeGuardService.isEnabled(this)) "Immer TVUI ✓" else "Immer TVUI einrichten"
+    }
+
+    private fun openGuardSettings() {
+        try {
+            startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            toast("„TVUI Homescreen-Wächter“ auswählen und einschalten")
+        } catch (e: Exception) {
+            toast("Bedienungshilfen-Einstellungen nicht gefunden 😕")
+        }
     }
 
     // ---------- Bewegung ----------
