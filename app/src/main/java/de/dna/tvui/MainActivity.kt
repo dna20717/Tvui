@@ -1,7 +1,12 @@
 package de.dna.tvui
 
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageInstaller
+import android.os.Build
 import android.graphics.Point
 import android.net.Uri
 import android.os.Bundle
@@ -30,6 +35,38 @@ class MainActivity : Activity() {
     private lateinit var presetName: TextView
     private lateinit var qrView: ImageView
     private lateinit var uploadUrl: TextView
+    private lateinit var updateText: TextView
+
+    private lateinit var updater: Updater
+    private var latest: Updater.Release? = null
+    @Volatile private var updating = false
+
+    private val installReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -999)) {
+                PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                    @Suppress("DEPRECATION")
+                    val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
+                    if (confirm != null) {
+                        try {
+                            startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        } catch (e: Exception) {
+                            updateText.text = "Installer nicht gefunden 😕"
+                            updating = false
+                        }
+                    }
+                }
+                PackageInstaller.STATUS_SUCCESS -> {
+                    updateText.text = "Update installiert ✓"
+                    updating = false
+                }
+                else -> {
+                    updateText.text = "Update abgebrochen"
+                    updating = false
+                }
+            }
+        }
+    }
 
     private val screen = Point()
     private var currentPackages: List<String> = emptyList()
@@ -55,6 +92,19 @@ class MainActivity : Activity() {
         presetName = findViewById(R.id.presetName)
         qrView = findViewById(R.id.qr)
         uploadUrl = findViewById(R.id.uploadUrl)
+        updateText = findViewById(R.id.updateText)
+        updater = Updater(this)
+
+        val filter = IntentFilter(Updater.ACTION_INSTALL_STATUS)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(installReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(installReceiver, filter)
+        }
+        findViewById<GlassLayout>(R.id.updateButton).apply {
+            cornerRadius = dp(22f)
+            setOnClickListener { onUpdateClicked() }
+        }
 
         findViewById<GlassLayout>(R.id.dock).cornerRadius = dp(30f)
         findViewById<GlassLayout>(R.id.settingsCard).cornerRadius = dp(34f)
@@ -64,6 +114,11 @@ class MainActivity : Activity() {
         overlay.setOnClickListener { hideSettings() }
 
         applyWallpaper()
+    }
+
+    override fun onDestroy() {
+        try { unregisterReceiver(installReceiver) } catch (_: Exception) {}
+        super.onDestroy()
     }
 
     override fun onResume() {
@@ -251,6 +306,7 @@ class MainActivity : Activity() {
         overlay.visibility = View.VISIBLE
         overlay.animate().alpha(1f).setDuration(180).start()
         startServer()
+        checkForUpdate()
         val selected = (0 until presetRow.childCount)
             .map { presetRow.getChildAt(it) }
             .firstOrNull { it.tag == store.selection } ?: presetRow.getChildAt(0)
@@ -299,6 +355,51 @@ class MainActivity : Activity() {
             toast("Neuer Hintergrund ✨")
         }
         return ok
+    }
+
+    // ---------- Update ----------
+
+    private fun checkForUpdate() {
+        if (updating) return
+        updateText.text = "Suche Update …"
+        thread {
+            val result = runCatching { updater.fetchLatest() }
+            runOnUiThread {
+                if (updating) return@runOnUiThread
+                val current = updater.currentBuild()
+                result.onSuccess { r ->
+                    latest = r
+                    updateText.text = if (r.build > current) "⬇ Update auf Build ${r.build}" else "Aktuell · Build $current ✓"
+                }.onFailure { e ->
+                    latest = null
+                    updateText.text = if (e.message?.contains("404") == true) "Kein Update gefunden (Repo privat?)"
+                    else "GitHub nicht erreichbar"
+                }
+            }
+        }
+    }
+
+    private fun onUpdateClicked() {
+        if (updating) return
+        val r = latest
+        if (r == null || r.build <= updater.currentBuild()) {
+            checkForUpdate()
+            return
+        }
+        updating = true
+        updateText.text = "Lade Update …"
+        thread {
+            try {
+                val file = updater.download(r.apkUrl) { pct ->
+                    runOnUiThread { updateText.text = "Lade Update … $pct %" }
+                }
+                runOnUiThread { updateText.text = "Installiere …" }
+                updater.install(file)
+            } catch (e: Exception) {
+                updating = false
+                runOnUiThread { updateText.text = "Update fehlgeschlagen 😕" }
+            }
+        }
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
