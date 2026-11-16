@@ -44,6 +44,8 @@ class MainActivity : Activity() {
     private lateinit var updateText: TextView
     private lateinit var motionText: TextView
     private lateinit var guardText: TextView
+    private lateinit var cleaner: CleanerPanel
+    private var dockPackages: Set<String> = emptySet()
 
     // Sanfte Hintergrund-Bewegung
     private var wallpaperBitmap: Bitmap? = null
@@ -120,6 +122,16 @@ class MainActivity : Activity() {
         updateText = findViewById(R.id.updateText)
         motionText = findViewById(R.id.motionText)
         guardText = findViewById(R.id.guardText)
+        cleaner = CleanerPanel(
+            this, findViewById(R.id.cleanerOverlay), findViewById(R.id.cleanerList),
+            { dockPackages }, { cleanFiles() },
+        )
+        findViewById<GlassLayout>(R.id.cleanerCard).cornerRadius = dp(34f)
+        findViewById<View>(R.id.cleanerOverlay).setOnClickListener { closeCleaner() }
+        findViewById<GlassLayout>(R.id.cleanButton).apply {
+            cornerRadius = dp(22f)
+            setOnClickListener { openCleaner() }
+        }
         findViewById<GlassLayout>(R.id.guardButton).apply {
             cornerRadius = dp(22f)
             setOnClickListener { openGuardSettings() }
@@ -161,6 +173,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         updateGuardLabel()
+        if (cleaner.isOpen) cleaner.rebuild()
         refreshApps()
     }
 
@@ -180,6 +193,7 @@ class MainActivity : Activity() {
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         if (settingsOpen) hideSettings()
+        if (cleaner.isOpen) closeCleaner()
         appScroll.smoothScrollTo(0, 0)
         appRow.getChildAt(0)?.requestFocus()
     }
@@ -187,7 +201,8 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         // Ein Homescreen schließt sich nie selbst.
-        if (settingsOpen) hideSettings() else {
+        if (cleaner.isOpen) closeCleaner()
+        else if (settingsOpen) hideSettings() else {
             appScroll.smoothScrollTo(0, 0)
             appRow.getChildAt(0)?.requestFocus()
         }
@@ -195,7 +210,8 @@ class MainActivity : Activity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_MENU) {
-            if (settingsOpen) hideSettings() else showSettings()
+            if (cleaner.isOpen) closeCleaner()
+            else if (settingsOpen) hideSettings() else showSettings()
             return true
         }
         return super.onKeyDown(keyCode, event)
@@ -218,6 +234,7 @@ class MainActivity : Activity() {
                 val keys = resolved.map { (item, app) -> "${item.name}:${app?.pkg}" }
                 if (keys == currentPackages) return@runOnUiThread
                 currentPackages = keys
+                dockPackages = resolved.mapNotNull { it.second?.pkg }.toSet()
                 val hadFocus = appRow.hasFocus() || appRow.childCount == 0
                 appRow.removeAllViews()
                 for ((item, app) in resolved) appRow.addView(tileFor(item, app))
@@ -399,10 +416,48 @@ class MainActivity : Activity() {
         return ok
     }
 
+    // ---------- Aufräumen ----------
+
+    private fun openCleaner() {
+        hideSettings()
+        content.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        cleaner.open()
+    }
+
+    private fun closeCleaner() {
+        cleaner.close()
+        content.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+        settingsButton.requestFocus()
+    }
+
+    private fun cleanFiles() {
+        if (!cleaner.hasStorageAccess()) {
+            requestPermissions(arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), REQ_STORAGE)
+            return
+        }
+        val files = cleaner.leftoverFiles()
+        var bytes = 0L
+        var count = 0
+        for (f in files) {
+            val len = f.length()
+            if (f.delete()) { bytes += len; count++ }
+        }
+        toast(if (count == 0) "Nichts zu löschen ✓" else "$count Datei(en) gelöscht · ${CleanerPanel.mb(bytes)} frei ✨")
+        cleaner.rebuild()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_STORAGE) {
+            if (grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED) cleanFiles()
+            else cleaner.rebuild()
+        }
+    }
+
     // ---------- Homescreen-Wächter ----------
 
     private fun updateGuardLabel() {
-        guardText.text = if (HomeGuardService.isEnabled(this)) "Immer TVUI ✓" else "Immer TVUI einrichten"
+        guardText.text = if (HomeGuardService.isEnabled(this)) "Immer TVUI ✓" else "Immer TVUI: aus"
     }
 
     private fun openGuardSettings() {
@@ -451,7 +506,7 @@ class MainActivity : Activity() {
 
     private fun checkForUpdate() {
         if (updating) return
-        updateText.text = "Build ${updater.currentBuild()} · suche Update …"
+        updateText.text = "Build ${updater.currentBuild()} · prüfe …"
         thread {
             val result = runCatching { updater.fetchLatest() }
             runOnUiThread {
@@ -459,11 +514,10 @@ class MainActivity : Activity() {
                 val current = updater.currentBuild()
                 result.onSuccess { r ->
                     latest = r
-                    updateText.text = if (r.build > current) "⬇ Update auf Build ${r.build}" else "Aktuell · Build $current ✓"
+                    updateText.text = if (r.build > current) "⬇ Build ${r.build} laden" else "Build $current ✓"
                 }.onFailure { e ->
                     latest = null
-                    updateText.text = "Build $current · " +
-                        if (e.message?.contains("404") == true) "kein Update gefunden" else "GitHub nicht erreichbar"
+                    updateText.text = "Build $current · offline"
                 }
             }
         }
@@ -477,19 +531,23 @@ class MainActivity : Activity() {
             return
         }
         updating = true
-        updateText.text = "Lade Update …"
+        updateText.text = "Lade …"
         thread {
             try {
                 val file = updater.download(r.apkUrl) { pct ->
-                    runOnUiThread { updateText.text = "Lade Update … $pct %" }
+                    runOnUiThread { updateText.text = "Lade … $pct %" }
                 }
                 runOnUiThread { updateText.text = "Installiere …" }
                 updater.install(file)
             } catch (e: Exception) {
                 updating = false
-                runOnUiThread { updateText.text = "Update fehlgeschlagen 😕" }
+                runOnUiThread { updateText.text = "Fehlgeschlagen 😕" }
             }
         }
+    }
+
+    companion object {
+        private const val REQ_STORAGE = 7
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()

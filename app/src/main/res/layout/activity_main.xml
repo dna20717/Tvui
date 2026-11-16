@@ -169,8 +169,8 @@
                         android:layout_marginEnd="14dp"
                         android:clickable="true"
                         android:focusable="true"
-                        android:paddingStart="20dp"
-                        android:paddingEnd="20dp">
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
 
                         <TextView
                             android:id="@+id/guardText"
@@ -189,8 +189,8 @@
                         android:layout_marginEnd="14dp"
                         android:clickable="true"
                         android:focusable="true"
-                        android:paddingStart="20dp"
-                        android:paddingEnd="20dp">
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
 
                         <TextView
                             android:id="@+id/motionText"
@@ -208,8 +208,8 @@
                         android:layout_height="44dp"
                         android:clickable="true"
                         android:focusable="true"
-                        android:paddingStart="20dp"
-                        android:paddingEnd="20dp">
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
 
                         <TextView
                             android:id="@+id/updateText"
@@ -217,7 +217,27 @@
                             android:layout_height="wrap_content"
                             android:layout_gravity="center_vertical"
                             android:singleLine="true"
-                            android:text="Nach Update suchen"
+                            android:text="Update"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="15sp" />
+                    </de.dna.tvui.GlassLayout>
+
+                    <de.dna.tvui.GlassLayout
+                        android:id="@+id/cleanButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:layout_marginStart="14dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_vertical"
+                            android:singleLine="true"
+                            android:text="Aufräumen"
                             android:textColor="#FFFFFFFF"
                             android:textSize="15sp" />
                     </de.dna.tvui.GlassLayout>
@@ -306,6 +326,63 @@
                             android:textSize="17sp" />
                     </LinearLayout>
                 </LinearLayout>
+            </LinearLayout>
+        </de.dna.tvui.GlassLayout>
+    </FrameLayout>
+    <!-- Aufräumen -->
+    <FrameLayout
+        android:id="@+id/cleanerOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#73000000"
+        android:clickable="true"
+        android:visibility="gone">
+
+        <de.dna.tvui.GlassLayout
+            android:id="@+id/cleanerCard"
+            android:layout_width="640dp"
+            android:layout_height="440dp"
+            android:layout_gravity="center"
+            android:clickable="true"
+            android:padding="28dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-light"
+                    android:text="Aufräumen 🧹"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="28sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginBottom="12dp"
+                    android:text="OK auf eine App = deinstallieren, samt ihrer Daten. Android fragt vorher nochmal nach."
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="15sp" />
+
+                <ScrollView
+                    android:id="@+id/cleanerScroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:overScrollMode="never"
+                    android:scrollbars="none">
+
+                    <LinearLayout
+                        android:id="@+id/cleanerList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="4dp" />
+                </ScrollView>
             </LinearLayout>
         </de.dna.tvui.GlassLayout>
     </FrameLayout>
