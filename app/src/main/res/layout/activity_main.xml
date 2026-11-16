@@ -163,26 +163,6 @@
                     android:paddingBottom="18dp">
 
                     <de.dna.tvui.GlassLayout
-                        android:id="@+id/guardButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="44dp"
-                        android:layout_marginEnd="14dp"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp">
-
-                        <TextView
-                            android:id="@+id/guardText"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center_vertical"
-                            android:singleLine="true"
-                            android:textColor="#FFFFFFFF"
-                            android:textSize="15sp" />
-                    </de.dna.tvui.GlassLayout>
-
-                    <de.dna.tvui.GlassLayout
                         android:id="@+id/motionButton"
                         android:layout_width="wrap_content"
                         android:layout_height="44dp"

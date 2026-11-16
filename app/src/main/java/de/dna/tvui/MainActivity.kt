@@ -43,7 +43,6 @@ class MainActivity : Activity() {
     private lateinit var uploadUrl: TextView
     private lateinit var updateText: TextView
     private lateinit var motionText: TextView
-    private lateinit var guardText: TextView
 
     // Sanfte Hintergrund-Bewegung
     private var wallpaperBitmap: Bitmap? = null
@@ -119,12 +118,6 @@ class MainActivity : Activity() {
         uploadUrl = findViewById(R.id.uploadUrl)
         updateText = findViewById(R.id.updateText)
         motionText = findViewById(R.id.motionText)
-        guardText = findViewById(R.id.guardText)
-        updater.deleteLeftovers()
-        findViewById<GlassLayout>(R.id.guardButton).apply {
-            cornerRadius = dp(22f)
-            setOnClickListener { openGuardSettings() }
-        }
         wallpaperView.scaleType = ImageView.ScaleType.MATRIX
         motionText.text = motionLabel()
         findViewById<GlassLayout>(R.id.motionButton).apply {
@@ -132,6 +125,7 @@ class MainActivity : Activity() {
             setOnClickListener { toggleMotion() }
         }
         updater = Updater(this)
+        updater.deleteLeftovers()
 
         val filter = IntentFilter(Updater.ACTION_INSTALL_STATUS)
         if (Build.VERSION.SDK_INT >= 33) {
@@ -161,7 +155,6 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        updateGuardLabel()
         if (settingsOpen && !updating) checkForUpdate()
         refreshApps()
     }
@@ -399,21 +392,6 @@ class MainActivity : Activity() {
             toast("Neuer Hintergrund ✨")
         }
         return ok
-    }
-
-    // ---------- Homescreen-Wächter ----------
-
-    private fun updateGuardLabel() {
-        guardText.text = if (HomeGuardService.isEnabled(this)) "Immer TVUI ✓" else "Immer TVUI: aus"
-    }
-
-    private fun openGuardSettings() {
-        try {
-            startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            toast("„TVUI Homescreen-Wächter“ auswählen und einschalten")
-        } catch (e: Exception) {
-            toast("Bedienungshilfen-Einstellungen nicht gefunden 😕")
-        }
     }
 
     // ---------- Bewegung ----------
