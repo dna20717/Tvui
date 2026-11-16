@@ -361,7 +361,7 @@ class MainActivity : Activity() {
 
     private fun checkForUpdate() {
         if (updating) return
-        updateText.text = "Suche Update …"
+        updateText.text = "Build ${updater.currentBuild()} · suche Update …"
         thread {
             val result = runCatching { updater.fetchLatest() }
             runOnUiThread {
@@ -372,8 +372,8 @@ class MainActivity : Activity() {
                     updateText.text = if (r.build > current) "⬇ Update auf Build ${r.build}" else "Aktuell · Build $current ✓"
                 }.onFailure { e ->
                     latest = null
-                    updateText.text = if (e.message?.contains("404") == true) "Kein Update gefunden (Repo privat?)"
-                    else "GitHub nicht erreichbar"
+                    updateText.text = "Build $current · " +
+                        if (e.message?.contains("404") == true) "kein Update gefunden" else "GitHub nicht erreichbar"
                 }
             }
         }
