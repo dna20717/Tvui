@@ -115,6 +115,12 @@ class Updater(private val activity: Activity) {
         return false
     }
 
+    /** Heruntergeladene Update-Datei wird nach der Installation nicht mehr gebraucht. */
+    fun deleteLeftovers() {
+        listOfNotNull(activity.cacheDir, activity.getExternalFilesDir(null))
+            .forEach { File(it, "update.apk").delete() }
+    }
+
     private fun open(url: String): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
