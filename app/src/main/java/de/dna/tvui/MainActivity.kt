@@ -173,6 +173,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         updateGuardLabel()
+        if (settingsOpen && !updating) checkForUpdate()
         if (cleaner.isOpen) cleaner.rebuild()
         refreshApps()
     }
@@ -538,7 +539,12 @@ class MainActivity : Activity() {
                     runOnUiThread { updateText.text = "Lade … $pct %" }
                 }
                 runOnUiThread { updateText.text = "Installiere …" }
-                updater.install(file)
+                val direct = updater.install(file)
+                if (direct) {
+                    // Installer-Bildschirm ist offen; beim Zurückkommen neu prüfen
+                    updating = false
+                    runOnUiThread { updateText.text = "Bitte bestätigen …" }
+                }
             } catch (e: Exception) {
                 updating = false
                 runOnUiThread { updateText.text = "Fehlgeschlagen 😕" }

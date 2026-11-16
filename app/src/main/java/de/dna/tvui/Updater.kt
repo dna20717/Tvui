@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import android.net.Uri
 import android.os.Build
 import org.json.JSONObject
 import java.io.File
@@ -47,7 +48,11 @@ class Updater(private val activity: Activity) {
 
     /** Hintergrund-Thread. Meldet den Fortschritt in Prozent. */
     fun download(url: String, progress: (Int) -> Unit): File {
-        val file = File(activity.cacheDir, "update.apk")
+        // Bis Android 6 muss der System-Installer die Datei selbst lesen können,
+        // darum dort im (für ihn lesbaren) externen App-Ordner ablegen.
+        val dir = if (Build.VERSION.SDK_INT < 24) activity.getExternalFilesDir(null) ?: activity.cacheDir
+        else activity.cacheDir
+        val file = File(dir, "update.apk")
         val conn = open(url)
         try {
             if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
@@ -75,8 +80,21 @@ class Updater(private val activity: Activity) {
         return file
     }
 
-    /** Übergibt die APK an den System-Installer. Der fragt dann nach Bestätigung. */
-    fun install(file: File) {
+    /**
+     * Übergibt die APK an den System-Installer. Der fragt dann nach Bestätigung.
+     * Gibt true zurück, wenn der klassische Installer-Bildschirm direkt geöffnet wurde.
+     */
+    fun install(file: File): Boolean {
+        if (Build.VERSION.SDK_INT < 24) {
+            // Klassischer Weg (wie Downloader): Installer-Bildschirm mit Datei-Adresse öffnen
+            file.setReadable(true, false)
+            @Suppress("DEPRECATION")
+            val intent = Intent(Intent.ACTION_INSTALL_PACKAGE)
+                .setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            activity.startActivity(intent)
+            return true
+        }
         val installer = activity.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         val id = installer.createSession(params)
@@ -94,6 +112,7 @@ class Updater(private val activity: Activity) {
             )
             session.commit(pi.intentSender)
         }
+        return false
     }
 
     private fun open(url: String): HttpURLConnection =
